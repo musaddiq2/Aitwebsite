@@ -6,31 +6,27 @@ import logger from '../configs/logger.js';
 // @desc    Get all courses
 // @route   GET /api/courses
 // @access  Public (authenticated users)
+
 export const getCourses = async (req, res) => {
   try {
-    const { page, limit, skip } = getPaginationParams(req);
     const { search, isActive } = req.query;
 
-    const query = {};
-    if (isActive !== undefined) query.isActive = isActive === 'true';
+    const query = { isActive: true };
+    
+    if (isActive !== undefined) {
+      query.isActive = isActive === 'true';
+    }
+    
     if (search) {
       query.$or = [
         { courseName: { $regex: search, $options: 'i' } },
+        { courseId: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } }
       ];
     }
 
-    const [courses, total] = await Promise.all([
-      Course.find(query)
-        .populate('createdBy', 'firstName lastName')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit),
-      Course.countDocuments(query)
-    ]);
-
-    const pagination = getPaginationMeta(total, page, limit);
-    sendPaginatedResponse(res, courses, pagination);
+    const courses = await Course.find(query).sort({ createdAt: -1 });
+    sendSuccessResponse(res, 200, 'Courses retrieved successfully', courses);
   } catch (error) {
     logger.error('Get courses error:', error);
     sendErrorResponse(res, 500, 'Failed to fetch courses');

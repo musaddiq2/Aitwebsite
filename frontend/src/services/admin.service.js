@@ -31,10 +31,9 @@ export const deleteStudent = async (id) => {
   const response = await axios.delete(`/admin/students/${id}`);
   return response.data;
 };
-
 // Courses
-export const getCourses = async () => {
-  const response = await axios.get('/admin/courses');
+export const getCourses = async (params = {}) => {
+  const response = await axios.get('/admin/courses', { params });
   return response.data;
 };
 

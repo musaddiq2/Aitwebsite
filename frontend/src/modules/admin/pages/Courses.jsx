@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getCourses, deleteCourse } from '../../../services/admin.service';
+import { getCourses, deleteCourse, createCourse } from '../../../services/admin.service';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -28,8 +28,108 @@ const Courses = () => {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filter, setFilter] = useState('all');
+  
+  // NEW STATES (add these here)
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [formData, setFormData] = useState({
+    courseId: '',
+    courseName: '',
+    description: '',
+    duration: '',
+    fees: '',
+    category: '',
+    level: 'Beginner',
+    subjects: [],
+    prerequisites: [],
+    isActive: true
+  });
+  const [subjectInput, setSubjectInput] = useState('');
+  const [prerequisiteInput, setPrerequisiteInput] = useState('');
 
-  // Debounce search
+  // ADD FORM HANDLERS HERE (after state declarations, before useEffect)
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
+  const handleAddSubject = () => {
+    if (subjectInput.trim()) {
+      setFormData(prev => ({
+        ...prev,
+        subjects: [...prev.subjects, subjectInput.trim()]
+      }));
+      setSubjectInput('');
+    }
+  };
+
+  const handleRemoveSubject = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      subjects: prev.subjects.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleAddPrerequisite = () => {
+    if (prerequisiteInput.trim()) {
+      setFormData(prev => ({
+        ...prev,
+        prerequisites: [...prev.prerequisites, prerequisiteInput.trim()]
+      }));
+      setPrerequisiteInput('');
+    }
+  };
+
+  const handleRemovePrerequisite = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      prerequisites: prev.prerequisites.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const courseData = {
+        ...formData,
+        fees: Number(formData.fees)
+      };
+      
+      const response = await createCourse(courseData);
+      if (response.success) {
+        toast.success('Course created successfully');
+        setShowAddModal(false);
+        resetForm();
+        fetchCourses();
+      }
+    } catch (error) {
+      console.error('Create course error:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to create course';
+      toast.error(errorMessage);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      courseId: '',
+      courseName: '',
+      description: '',
+      duration: '',
+      fees: '',
+      category: '',
+      level: 'Beginner',
+      subjects: [],
+      prerequisites: [],
+      isActive: true
+    });
+    setSubjectInput('');
+    setPrerequisiteInput('');
+  };
+
+  // Debounce search (your existing useEffect)
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search);
@@ -121,7 +221,7 @@ const Courses = () => {
 
         {/* Add Course Button */}
         <motion.button
-          onClick={() => navigate('/admin/courses/add')}
+          onClick={() => setShowAddModal(true)}
           className="flex items-center justify-center space-x-2 px-4 md:px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl transition-all duration-200"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
@@ -399,6 +499,270 @@ const Courses = () => {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Add Course Modal */}
+<AnimatePresence>
+  {showAddModal && (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/10 backdrop-blur-[2px] flex items-center justify-center z-50 p-4"
+      onClick={() => setShowAddModal(false)}
+    >
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal Header */}
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Plus className="w-5 h-5 text-blue-600" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900">Add New Course</h2>
+          </div>
+          <button
+            onClick={() => setShowAddModal(false)}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <XCircle className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Course ID & Name */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Course ID <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="courseId"
+                value={formData.courseId}
+                onChange={handleInputChange}
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="e.g., CS101"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Course Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="courseName"
+                value={formData.courseName}
+                onChange={handleInputChange}
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="e.g., Introduction to Programming"
+              />
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Description
+            </label>
+            <textarea
+              name="description"
+              value={formData.description}
+              onChange={handleInputChange}
+              rows="3"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Course description..."
+            />
+          </div>
+
+          {/* Duration, Fees, Category */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Duration <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="duration"
+                value={formData.duration}
+                onChange={handleInputChange}
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="e.g., 6 months"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Fees (₹) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                name="fees"
+                value={formData.fees}
+                onChange={handleInputChange}
+                required
+                min="0"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="e.g., 50000"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Category
+              </label>
+              <input
+                type="text"
+                name="category"
+                value={formData.category}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="e.g., Programming"
+              />
+            </div>
+          </div>
+
+          {/* Level & Active Status */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Level <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="level"
+                value={formData.level}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="Beginner">Beginner</option>
+                <option value="Intermediate">Intermediate</option>
+                <option value="Advanced">Advanced</option>
+              </select>
+            </div>
+            <div className="flex items-center">
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="isActive"
+                  checked={formData.isActive}
+                  onChange={handleInputChange}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium text-gray-700">Active Course</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Subjects */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Subjects
+            </label>
+            <div className="flex gap-2 mb-2">
+              <input
+                type="text"
+                value={subjectInput}
+                onChange={(e) => setSubjectInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSubject())}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Add subject and press Enter"
+              />
+              <button
+                type="button"
+                onClick={handleAddSubject}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Add
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {formData.subjects.map((subject, index) => (
+                <span
+                  key={index}
+                  className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+                >
+                  {subject}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveSubject(index)}
+                    className="ml-2 text-blue-600 hover:text-blue-800"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Prerequisites */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Prerequisites
+            </label>
+            <div className="flex gap-2 mb-2">
+              <input
+                type="text"
+                value={prerequisiteInput}
+                onChange={(e) => setPrerequisiteInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddPrerequisite())}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Add prerequisite and press Enter"
+              />
+              <button
+                type="button"
+                onClick={handleAddPrerequisite}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Add
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {formData.prerequisites.map((prereq, index) => (
+                <span
+                  key={index}
+                  className="inline-flex items-center px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm"
+                >
+                  {prereq}
+                  <button
+                    type="button"
+                    onClick={() => handleRemovePrerequisite(index)}
+                    className="ml-2 text-gray-600 hover:text-gray-800"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Modal Footer */}
+          <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={() => setShowAddModal(false)}
+              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Create Course
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
+
     </div>
   );
 };
