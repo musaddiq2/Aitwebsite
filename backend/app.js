@@ -27,7 +27,7 @@ import questionRoutes from './routes/question.routes.js';
 import resultRoutes from './routes/result.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import publicRoutes from './routes/public.routes.js';
-
+import loginHistoryRoutes from './routes/loginHistory.routes.js';
 // Import middleware
 import { errorHandler, notFound } from './middlewares/errorMiddleware.js';
 import { setupSwagger } from './configs/swagger.js';
@@ -86,7 +86,7 @@ app.use('/api/questions', questionRoutes);
 app.use('/api/results', resultRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/public', publicRoutes);
-
+app.use('/api/login-history', loginHistoryRoutes);
 // ==================== Swagger Documentation ====================
 
 if (process.env.NODE_ENV !== 'production') {

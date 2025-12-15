@@ -100,3 +100,30 @@ export const getFeesAnalytics = async (startDate, endDate) => {
   return response.data;
 };
 
+// ===============================
+// Login History APIs (Admin)
+// ===============================
+
+// Get all login history (admin)
+export const getLoginHistory = async (params = {}) => {
+  const response = await axios.get("/login-history", { params });
+  return response.data;
+};
+
+// Get stats (admin)
+export const getLoginStats = async () => {
+  const response = await axios.get("/login-history/stats");
+  return response.data;
+};
+
+// Get specific user login history
+export const getUserLoginHistory = async (userId) => {
+  const response = await axios.get(`/login-history/user/${userId}`);
+  return response.data;
+};
+
+// Get logged-in user history
+export const getMyLoginHistory = async () => {
+  const response = await axios.get("/login-history/me");
+  return response.data;
+};
