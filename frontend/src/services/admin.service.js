@@ -31,26 +31,35 @@ export const deleteStudent = async (id) => {
   const response = await axios.delete(`/admin/students/${id}`);
   return response.data;
 };
-// Courses
+
+// ===============================
+// Courses  ✅ FIXED
+// ===============================
 export const getCourses = async (params = {}) => {
-  const response = await axios.get('/admin/courses', { params });
+  const response = await axios.get('/courses', { params });
+  return response.data;
+};
+
+export const getCourseById = async (id) => {
+  const response = await axios.get(`/courses/${id}`);
   return response.data;
 };
 
 export const createCourse = async (courseData) => {
-  const response = await axios.post('/admin/courses', courseData);
+  const response = await axios.post('/courses', courseData);
   return response.data;
 };
 
 export const updateCourse = async (id, courseData) => {
-  const response = await axios.put(`/admin/courses/${id}`, courseData);
+  const response = await axios.put(`/courses/${id}`, courseData);
   return response.data;
 };
 
 export const deleteCourse = async (id) => {
-  const response = await axios.delete(`/admin/courses/${id}`);
+  const response = await axios.delete(`/courses/${id}`);
   return response.data;
 };
+
 
 // Attendance
 export const getAttendance = async (params = {}) => {

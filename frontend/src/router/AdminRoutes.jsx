@@ -11,6 +11,7 @@ import Results from '../modules/admin/pages/Results';
 import Leaves from '../modules/admin/pages/Leaves';
 import Certificates from '../modules/admin/pages/Certificates';
 import LoginHistory from '../modules/admin/pages/LoginHistory';
+import CourseDetails from '../modules/admin/pages/CourseDetails';
 
 const AdminRoutes = () => {
   return (
@@ -27,6 +28,7 @@ const AdminRoutes = () => {
       <Route path="leaves" element={<Leaves />} />
       <Route path="certificates" element={<Certificates />} />
       <Route path="login-history" element={<LoginHistory />} />
+      <Route path="/admin/courses/:id" element={<CourseDetails />} />
     </Routes>
   );
 };
