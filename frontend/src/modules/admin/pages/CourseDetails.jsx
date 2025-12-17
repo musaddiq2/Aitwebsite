@@ -35,20 +35,27 @@ const CourseDetails = () => {
     fetchCourseDetails();
   }, [id]);
 
-  const fetchCourseDetails = async () => {
-    try {
-      setLoading(true);
-      const response = await getCourseById(id);
-      if (response.success) {
-        setCourse(response.data);
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load course details');
-      toast.error('Failed to load course details');
-    } finally {
-      setLoading(false);
+ const fetchCourseDetails = async () => {
+  try {
+    setLoading(true);
+    console.log('Fetching course ID:', id); // Debug log
+    const response = await getCourseById(id);
+    console.log('API Response:', response); // Debug log
+    
+    // Your backend returns: { success: true, message: '...', data: course }
+    if (response.success) {
+      setCourse(response.data);
+    } else {
+      setError('Course not found');
     }
-  };
+  } catch (err) {
+    console.error('Fetch error:', err); // Debug log
+    setError(err.response?.data?.message || 'Failed to load course details');
+    toast.error('Failed to load course details');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleDelete = async () => {
     if (!window.confirm('Are you sure you want to delete this course? This action cannot be undone.')) {

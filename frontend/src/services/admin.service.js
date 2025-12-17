@@ -60,7 +60,6 @@ export const deleteCourse = async (id) => {
   return response.data;
 };
 
-
 // Attendance
 export const getAttendance = async (params = {}) => {
   const response = await axios.get('/admin/attendance', { params });
