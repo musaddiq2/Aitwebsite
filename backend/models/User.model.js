@@ -42,10 +42,6 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
-  parentsContactNumber: {
-    type: String,
-    trim: true
-  },
   gender: {
     type: String,
     enum: ['Male', 'Female', 'Other']
@@ -57,13 +53,22 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+ 
   
-  // Address
+  // Address Information
   address: {
     type: String,
     trim: true
   },
   city: {
+    type: String,
+    trim: true
+  },
+  state: {
+    type: String,
+    trim: true
+  },
+  pincode: {
     type: String,
     trim: true
   },
@@ -114,8 +119,15 @@ const userSchema = new mongoose.Schema({
     sparse: true,
     trim: true
   },
+  enrollmentDate: {
+    type: Date,
+    default: Date.now
+  },
+  courseEndDate: {
+    type: Date
+  },
   
-  // Fees
+  // Fees Information
   fullCourseFees: {
     type: Number,
     default: 0
@@ -130,7 +142,21 @@ const userSchema = new mongoose.Schema({
   },
   feesPaidMode: {
     type: String,
-    enum: ['Cash', 'Online', 'Cheque', 'UPI', 'Other'],
+    enum: ['Cash', 'Online', 'Cheque', 'UPI', 'Card', 'Other'],
+    trim: true
+  },
+  
+  // Parent/Guardian Information
+  parentName: {
+    type: String,
+    trim: true
+  },
+  parentPhone: {
+    type: String,
+    trim: true
+  },
+  emergencyContact: {
+    type: String,
     trim: true
   },
   
@@ -150,9 +176,6 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
-  courseEndDate: {
-    type: Date
-  },
   
   // Password reset
   resetPasswordToken: String,
@@ -165,7 +188,7 @@ const userSchema = new mongoose.Schema({
   },
   emailVerificationToken: String,
   
-  // Last login
+  // Last login tracking
   lastLogin: {
     type: Date
   },
@@ -178,13 +201,20 @@ const userSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Indexes (email and rollNo already have unique: true which creates indexes)
+// Indexes for better query performance
 userSchema.index({ status: 1, isDeleted: 1 });
 userSchema.index({ courseId: 1 });
+userSchema.index({ enrollmentDate: 1 });
+userSchema.index({ batchTime: 1 });
 
 // Virtual for full name
 userSchema.virtual('fullName').get(function() {
   return `${this.firstName} ${this.lastName}`;
+});
+
+// Virtual for balance fees
+userSchema.virtual('balanceFees').get(function() {
+  return Math.max(0, (this.fullCourseFees || 0) - (this.feesPaidAmount || 0));
 });
 
 // Hash password before saving
@@ -201,10 +231,14 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Generate balance fees
-userSchema.virtual('balanceFees').get(function() {
-  return Math.max(0, (this.fullCourseFees || 0) - (this.feesPaidAmount || 0));
-});
+// Method to get public profile (without sensitive data)
+userSchema.methods.getPublicProfile = function() {
+  const userObject = this.toObject();
+  delete userObject.password;
+  delete userObject.resetPasswordToken;
+  delete userObject.resetPasswordExpire;
+  delete userObject.emailVerificationToken;
+  return userObject;
+};
 
 export default mongoose.model('User', userSchema);
-

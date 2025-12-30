@@ -7,6 +7,7 @@ import { sendSuccessResponse, sendErrorResponse, sendPaginatedResponse } from '.
 import { getPaginationParams, getPaginationMeta } from '../utils/pagination.js';
 import logger from '../configs/logger.js';
 
+
 // @desc    Get admin dashboard
 // @route   GET /api/admin/dashboard
 // @access  Private/Admin
@@ -90,14 +91,66 @@ export const createStudent = async (req, res) => {
       status: req.body.status || 'Pending'
     };
 
+    // Validate rollNo
+    if (!studentData.rollNo || studentData.rollNo.trim() === '') {
+      return sendErrorResponse(res, 400, 'Roll Number is required');
+    }
+
+    studentData.rollNo = studentData.rollNo.trim();
+
+    // BACKEND VALIDATION: Verify course end date calculation
+    if (studentData.courseId && studentData.registrationDate) {
+      const course = await Course.findById(studentData.courseId);
+      
+      if (course) {
+        // Extract months from duration
+        const match = course.duration.match(/^(\d+)\s*months?$/i);
+        
+        if (match) {
+          const months = parseInt(match[1], 10);
+          const regDate = new Date(studentData.registrationDate);
+          const calculatedEndDate = new Date(regDate);
+          calculatedEndDate.setMonth(regDate.getMonth() + months);
+          
+          // Auto-set if missing or validate if provided
+          if (!studentData.courseEndDate) {
+            studentData.courseEndDate = calculatedEndDate;
+          } else {
+            const providedEndDate = new Date(studentData.courseEndDate);
+            const daysDifference = Math.abs(
+              (providedEndDate - calculatedEndDate) / (1000 * 60 * 60 * 24)
+            );
+            
+            // Allow small difference (1-2 days) for edge cases
+            if (daysDifference > 2) {
+              console.warn('End date mismatch detected:', {
+                provided: studentData.courseEndDate,
+                calculated: calculatedEndDate.toISOString().split('T')[0]
+              });
+            }
+          }
+        }
+      }
+    }
+
+    console.log("Creating student with data:", studentData);
+
     const student = await User.create(studentData);
-    const studentResponse = await User.findById(student._id).select('-password');
+
+    const studentResponse = await User.findById(student._id)
+      .select('-password')
+      .populate('courseId', 'courseName duration fees');
 
     sendSuccessResponse(res, 201, 'Student created successfully', studentResponse);
   } catch (error) {
     logger.error('Create student error:', error);
+
     if (error.code === 11000) {
-      sendErrorResponse(res, 400, 'Email or Roll Number already exists');
+      const field = error.keyValue?.email ? 'Email' : 'Roll Number';
+      sendErrorResponse(res, 400, `${field} already exists`);
+    } else if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
+      sendErrorResponse(res, 400, messages.join(', '));
     } else {
       sendErrorResponse(res, 500, 'Failed to create student');
     }

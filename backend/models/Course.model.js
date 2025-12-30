@@ -55,8 +55,39 @@ const courseSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// ============================================
+// PRE-SAVE HOOK: Normalize duration format
+// ============================================
+// This automatically converts any duration format to "X months"
+// Examples:
+//   "6" → "6 months"
+//   "DSD-6" → "6 months"  
+//   "12 Months" → "12 months"
+//   "MERN Stack 6" → "6 months"
+courseSchema.pre('save', function(next) {
+  if (this.duration) {
+    // Normalize duration format
+    const duration = this.duration.trim().toLowerCase();
+    
+    // Extract number from various formats
+    const match = duration.match(/(\d+)/);
+    
+    if (match) {
+      const months = match[1];
+      // Standardize to "X months" format
+      this.duration = `${months} months`;
+      console.log('✅ Normalized duration to:', this.duration);
+    } else {
+      console.warn('⚠️ Could not extract months from duration:', this.duration);
+    }
+  }
+  next();
+});
+
+// ============================================
+// INDEXES
+// ============================================
 courseSchema.index({ courseName: 1 });
 courseSchema.index({ isActive: 1 });
 
 export default mongoose.model('Course', courseSchema);
-

@@ -15,6 +15,7 @@ router.get('/dashboard', adminController.getDashboard);
 router.get('/dashboard/stats', analyticsController.getDashboardStats);
 
 // Students
+
 router.get('/students', adminController.getStudents);
 router.get('/students/:id', adminController.getStudentById);
 router.post('/students', adminController.createStudent);
@@ -42,4 +43,3 @@ router.get('/analytics/attendance', analyticsController.getAttendanceAnalytics);
 router.get('/analytics/fees', analyticsController.getFeesAnalytics);
 
 export default router;
-
