@@ -56,27 +56,35 @@ export const getResultById = async (resultId) => {
   return response.data;
 };
 
-// Leave - Update to use correct endpoints
+// ===============================
+// 📋 LEAVE APIs (Student)
+// ===============================
+
+// Apply for leave
 export const applyLeave = async (leaveData) => {
   const response = await axios.post('/leaves', leaveData);
   return response.data;
 };
 
+// Get my leaves
 export const getLeaves = async (params = {}) => {
   const response = await axios.get('/leaves', { params });
   return response.data;
 };
 
+// Get specific leave by ID
 export const getLeaveById = async (id) => {
   const response = await axios.get(`/leaves/${id}`);
   return response.data;
 };
 
+// Update leave (only pending leaves)
 export const updateLeave = async (id, leaveData) => {
   const response = await axios.put(`/leaves/${id}`, leaveData);
   return response.data;
 };
 
+// Delete leave (only pending leaves)
 export const deleteLeave = async (id) => {
   const response = await axios.delete(`/leaves/${id}`);
   return response.data;
