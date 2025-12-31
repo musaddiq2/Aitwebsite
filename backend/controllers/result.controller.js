@@ -79,29 +79,45 @@ export const getResultById = async (req, res) => {
   }
 };
 
-// @desc    Release result
-// @route   PUT /api/results/:id/release
+// @desc    Release or unrelease a result (toggle)
+// @route   PATCH /api/results/:id/release
 // @access  Private/Admin
 export const releaseResult = async (req, res) => {
   try {
+    const { isReleased } = req.body;
+
+    // Validate that isReleased is a boolean
+    if (typeof isReleased !== 'boolean') {
+      return sendErrorResponse(res, 400, 'isReleased field must be true or false');
+    }
+
+    const updateData = {
+      isReleased,
+      releasedBy: isReleased ? req.user._id : null,
+      releasedAt: isReleased ? new Date() : null
+    };
+
     const result = await Result.findByIdAndUpdate(
       req.params.id,
-      {
-        isReleased: true,
-        releasedBy: req.user._id,
-        releasedAt: new Date()
-      },
-      { new: true }
-    ).populate('userId').populate('examId');
+      updateData,
+      { new: true, runValidators: true }
+    )
+      .populate('userId', 'firstName lastName')
+      .populate('examId', 'examTitle');
 
     if (!result) {
       return sendErrorResponse(res, 404, 'Result not found');
     }
 
-    sendSuccessResponse(res, 200, 'Result released successfully', result);
+    sendSuccessResponse(
+      res,
+      200,
+      `Result ${isReleased ? 'released' : 'unreleased'} successfully`,
+      result
+    );
   } catch (error) {
-    logger.error('Release result error:', error);
-    sendErrorResponse(res, 500, 'Failed to release result');
+    logger.error('Release/Unrelease result error:', error);
+    sendErrorResponse(res, 500, 'Failed to update result release status');
   }
 };
 
@@ -134,3 +150,4 @@ export const getExamStats = async (req, res) => {
     sendErrorResponse(res, 500, 'Failed to fetch exam statistics');
   }
 };
+

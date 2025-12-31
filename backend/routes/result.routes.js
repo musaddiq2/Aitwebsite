@@ -10,7 +10,7 @@ router.use(protect);
 // Result routes
 router.get('/', resultController.getResults);
 router.get('/:id', resultController.getResultById);
-router.put('/:id/release', adminOnly, resultController.releaseResult);
+router.patch('/:id/release', adminOnly, resultController.releaseResult);
 router.get('/exam/:examId/stats', adminOnly, resultController.getExamStats);
 
 export default router;

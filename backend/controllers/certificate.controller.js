@@ -10,37 +10,57 @@ import logger from '../configs/logger.js';
 // @access  Private
 export const getCertificates = async (req, res) => {
   try {
-    const { page, limit, skip } = getPaginationParams(req);
-    const { studentId, status, courseId } = req.query;
+    if (!req.user) {
+      return sendErrorResponse(res, 401, 'Unauthorized');
+    }
 
+    // Pagination
+    const { page, limit, skip } = getPaginationParams(req);
+    const skipNum = Number(skip) || 0;
+    const limitNum = Number(limit) || 10;
+
+    // Query filters
+    const { studentId, status, courseId } = req.query;
     const query = {};
-    
-    // If student role, only show their certificates
+
+    // Student can only see their own certificates
     if (req.user.role === 'student') {
       query.studentId = req.user._id;
-    } else if (studentId) {
+    } 
+    // Admin can filter by studentId
+    else if (studentId && mongoose.Types.ObjectId.isValid(studentId)) {
       query.studentId = studentId;
     }
 
+    // Status filter
     if (status) query.status = status;
-    if (courseId) query.courseId = courseId;
 
+    // Course filter
+    if (courseId && mongoose.Types.ObjectId.isValid(courseId)) {
+      query.courseId = courseId;
+    }
+
+    // Fetch certificates and total count in parallel
     const [certificates, total] = await Promise.all([
       Certificate.find(query)
         .populate('studentId', 'firstName lastName email rollNo')
         .populate('courseId', 'courseName duration')
         .populate('approvedBy', 'firstName lastName')
         .sort({ requestDate: -1 })
-        .skip(skip)
-        .limit(limit),
+        .skip(skipNum)
+        .limit(limitNum),
       Certificate.countDocuments(query)
     ]);
 
-    const pagination = getPaginationMeta(total, page, limit);
+    // Pagination metadata
+    const pagination = getPaginationMeta(total, page, limitNum);
+
+    // Send response
     sendPaginatedResponse(res, certificates, pagination);
+
   } catch (error) {
     logger.error('Get certificates error:', error);
-    sendErrorResponse(res, 500, 'Failed to fetch certificates');
+    sendErrorResponse(res, 500, error.message || 'Failed to fetch certificates');
   }
 };
 
@@ -75,6 +95,21 @@ export const getCertificateById = async (req, res) => {
 // @access  Private/Student
 export const requestCertificate = async (req, res) => {
   try {
+    const {
+      studentEmail,
+      studentFullName,
+      contactNo,
+      dateOfBirth,
+      mothersName,
+      qualification,
+      courseName,
+      paidAmount,
+      totalFees,
+      remark,
+      studentSign,
+      studentPhoto
+    } = req.body;
+
     const student = await User.findById(req.user._id);
     
     if (!student.courseId) {
@@ -102,6 +137,18 @@ export const requestCertificate = async (req, res) => {
       studentId: req.user._id,
       courseId: student.courseId,
       certificateNumber: certNumber,
+      studentEmail,
+      studentFullName,
+      contactNo,
+      dateOfBirth,
+      mothersName,
+      qualification,
+      courseName,
+      paidAmount,
+      totalFees,
+      remark,
+      studentSign,
+      studentPhoto,
       status: 'Pending'
     });
 

@@ -76,19 +76,104 @@ export const getStudentAttendance = async (studentId) => {
   return response.data;
 };
 
-// Fees
-export const getFees = async (params = {}) => {
-  const response = await axios.get('/admin/fees', { params });
+// ===============================
+// 💰 FEES / INSTALLMENTS ✅ FIXED
+// ===============================
+
+// Get all installments
+export const getInstallments = async (params = {}) => {
+  const response = await axios.get('/installments', { params });
   return response.data;
 };
 
+// Get installment by ID
+export const getInstallmentById = async (id) => {
+  const response = await axios.get(`/installments/${id}`);
+  return response.data;
+};
+
+// Create installment (Admin)
 export const createInstallment = async (installmentData) => {
-  const response = await axios.post('/admin/fees', installmentData);
+  const response = await axios.post('/installments', installmentData);
   return response.data;
 };
 
-export const getStudentFees = async (studentId) => {
-  const response = await axios.get(`/admin/fees/${studentId}`);
+// Update installment
+export const updateInstallment = async (id, installmentData) => {
+  const response = await axios.put(`/installments/${id}`, installmentData);
+  return response.data;
+};
+
+// Delete installment
+export const deleteInstallment = async (id) => {
+  const response = await axios.delete(`/installments/${id}`);
+  return response.data;
+};
+
+// ===============================
+// EXAM MODULE APIs - ADD THESE
+// ===============================
+
+// Exams
+export const getExams = async (params = {}) => {
+  const response = await axios.get('/exams', { params });
+  return response.data;
+};
+
+export const getExamById = async (id) => {
+  const response = await axios.get(`/exams/${id}`);
+  return response.data;
+};
+
+export const createExam = async (examData) => {
+  const response = await axios.post('/exams', examData);
+  return response.data;
+};
+
+export const updateExam = async (id, examData) => {
+  const response = await axios.put(`/exams/${id}`, examData);
+  return response.data;
+};
+
+export const deleteExam = async (id) => {
+  const response = await axios.delete(`/exams/${id}`);
+  return response.data;
+};
+
+// Questions
+export const getQuestions = async (params = {}) => {
+  const response = await axios.get('/questions', { params });
+  return response.data;
+};
+
+export const createQuestion = async (questionData) => {
+  const response = await axios.post('/questions', questionData);
+  return response.data;
+};
+
+export const updateQuestion = async (id, questionData) => {
+  const response = await axios.put(`/questions/${id}`, questionData);
+  return response.data;
+};
+
+export const deleteQuestion = async (id) => {
+  const response = await axios.delete(`/questions/${id}`);
+  return response.data;
+};
+
+// Results (Admin)
+export const getResults = async (params = {}) => {
+  const response = await axios.get('/results', { params });
+  return response.data;
+};
+
+export const getResultById = async (id) => {
+  const response = await axios.get(`/results/${id}`);
+  return response.data;
+};
+
+export const releaseResult = async (id, isReleased) => {
+  const response = await axios.patch(`/results/${id}/release`, { isReleased });
   return response.data;
 };
 
@@ -132,5 +217,58 @@ export const getUserLoginHistory = async (userId) => {
 // Get logged-in user history
 export const getMyLoginHistory = async () => {
   const response = await axios.get("/login-history/me");
+  return response.data;
+};
+
+// ===============================
+// 📋 LEAVE MANAGEMENT APIs (Admin)
+// ===============================
+
+export const getLeaves = async (params = {}) => {
+  const response = await axios.get('/leaves', { params });
+  return response.data;
+};
+
+export const getLeaveById = async (id) => {
+  const response = await axios.get(`/leaves/${id}`);
+  return response.data;
+};
+
+export const approveLeave = async (id) => {
+  const response = await axios.put(`/leaves/${id}/approve`);
+  return response.data;
+};
+
+export const rejectLeave = async (id, data) => {
+  const response = await axios.put(`/leaves/${id}/reject`, data);
+  return response.data;
+};
+
+// ===============================
+// 📜 CERTIFICATE MANAGEMENT APIs (Admin)
+// ===============================
+
+export const getCertificates = async (params = {}) => {
+  const response = await axios.get('/certificates', { params });
+  return response.data;
+};
+
+export const getCertificateById = async (id) => {
+  const response = await axios.get(`/certificates/${id}`);
+  return response.data;
+};
+
+export const approveCertificate = async (id, data) => {
+  const response = await axios.put(`/certificates/${id}/approve`, data);
+  return response.data;
+};
+
+export const rejectCertificate = async (id, data) => {
+  const response = await axios.put(`/certificates/${id}/reject`, data);
+  return response.data;
+};
+
+export const issueCertificate = async (id, data) => {
+  const response = await axios.put(`/certificates/${id}/issue`, data);
   return response.data;
 };

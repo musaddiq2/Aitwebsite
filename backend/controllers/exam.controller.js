@@ -25,7 +25,7 @@ export const getExams = async (req, res) => {
 
     const [exams, total] = await Promise.all([
       Exam.find(query)
-        .populate('createdBy', 'firstName lastName')
+        .select('examTitle description duration totalMarks passingMarks isActive createdAt')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
@@ -45,8 +45,7 @@ export const getExams = async (req, res) => {
 // @access  Private
 export const getExamById = async (req, res) => {
   try {
-    const exam = await Exam.findById(req.params.id)
-      .populate('createdBy', 'firstName lastName');
+    const exam = await Exam.findById(req.params.id);
 
     if (!exam) {
       return sendErrorResponse(res, 404, 'Exam not found');

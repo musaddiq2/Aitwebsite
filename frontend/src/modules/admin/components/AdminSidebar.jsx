@@ -33,6 +33,7 @@ const AdminSidebar = () => {
     { path: '/admin/attendance', icon: Calendar, label: 'Attendance' },
     { path: '/admin/fees', icon: DollarSign, label: 'Fees' },
     { path: '/admin/exams', icon: ClipboardList, label: 'Exams' },
+    { path: '/admin/exams/results', icon: Award, label: 'Exam Results' },
     { path: '/admin/questions', icon: FileText, label: 'Questions' },
     { path: '/admin/results', icon: Award, label: 'Results' },
     { path: '/admin/leaves', icon: UserX, label: 'Leaves' },

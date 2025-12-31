@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { useAuth } from './hooks/useAuth';
 import PublicRoutes from './router/PublicRoutes';
 import AdminRoutes from './router/AdminRoutes';
@@ -22,54 +23,74 @@ function App() {
   }
 
   return (
-    <Routes>
-      {/* Public Routes */}
-      <Route element={<PublicLayout />}>
-        <Route path="/*" element={<PublicRoutes />} />
-      </Route>
-
-      {/* Protected Admin Routes */}
-      <Route
-        path="/admin/*"
-        element={
-          <Protected requiredRole="admin">
-            <AdminLayout />
-          </Protected>
-        }
-      >
-        <Route path="*" element={<AdminRoutes />} />
-      </Route>
-
-      {/* Protected Student Routes */}
-      <Route
-        path="/student/*"
-        element={
-          <Protected requiredRole="student">
-            <StudentLayout />
-          </Protected>
-        }
-      >
-        <Route path="*" element={<StudentRoutes />} />
-      </Route>
-
-      {/* Default redirect */}
-      <Route
-        path="/"
-        element={
-          user ? (
-            user.role === 'admin' ? (
-              <Navigate to="/admin/dashboard" replace />
-            ) : (
-              <Navigate to="/student/dashboard" replace />
-            )
-          ) : (
-            <Navigate to="/home" replace />
-          )
-        }
+    <>
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          duration: 3000,
+          success: {
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#fff',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#fff',
+            },
+          },
+        }}
       />
-    </Routes>
+      
+      <Routes>
+        {/* Public Routes */}
+        <Route element={<PublicLayout />}>
+          <Route path="/*" element={<PublicRoutes />} />
+        </Route>
+
+        {/* Protected Admin Routes */}
+        <Route
+          path="/admin/*"
+          element={
+            <Protected requiredRole="admin">
+              <AdminLayout />
+            </Protected>
+          }
+        >
+          <Route path="*" element={<AdminRoutes />} />
+        </Route>
+
+        {/* Protected Student Routes */}
+        <Route
+          path="/student/*"
+          element={
+            <Protected requiredRole="student">
+              <StudentLayout />
+            </Protected>
+          }
+        >
+          <Route path="*" element={<StudentRoutes />} />
+        </Route>
+
+        {/* Default redirect */}
+        <Route
+          path="/"
+          element={
+            user ? (
+              user.role === 'admin' ? (
+                <Navigate to="/admin/dashboard" replace />
+              ) : (
+                <Navigate to="/student/dashboard" replace />
+              )
+            ) : (
+              <Navigate to="/home" replace />
+            )
+          }
+        />
+      </Routes>
+    </>
   );
 }
 
 export default App;
-

@@ -56,25 +56,45 @@ export const getResultById = async (resultId) => {
   return response.data;
 };
 
-// Leave
+// Leave - Update to use correct endpoints
 export const applyLeave = async (leaveData) => {
-  const response = await axios.post('/student/leave', leaveData);
+  const response = await axios.post('/leaves', leaveData);
   return response.data;
 };
 
-export const getLeaves = async () => {
-  const response = await axios.get('/student/leave');
+export const getLeaves = async (params = {}) => {
+  const response = await axios.get('/leaves', { params });
   return response.data;
 };
 
-// Certificate
-export const requestCertificate = async () => {
-  const response = await axios.post('/student/certificate');
+export const getLeaveById = async (id) => {
+  const response = await axios.get(`/leaves/${id}`);
   return response.data;
 };
 
-export const getCertificates = async () => {
-  const response = await axios.get('/student/certificate');
+export const updateLeave = async (id, leaveData) => {
+  const response = await axios.put(`/leaves/${id}`, leaveData);
+  return response.data;
+};
+
+export const deleteLeave = async (id) => {
+  const response = await axios.delete(`/leaves/${id}`);
+  return response.data;
+};
+
+// Certificate - Updated to send form data
+export const requestCertificate = async (formData) => {
+  const response = await axios.post('/certificates', formData);
+  return response.data;
+};
+
+export const getCertificates = async (params = {}) => {
+  const response = await axios.get('/certificates', { params });
+  return response.data;
+};
+
+export const getCertificateById = async (id) => {
+  const response = await axios.get(`/certificates/${id}`);
   return response.data;
 };
 

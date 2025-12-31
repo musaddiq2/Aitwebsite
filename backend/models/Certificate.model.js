@@ -17,9 +17,70 @@ const certificateSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
-  issueDate: {
+  
+  // Student Information
+  studentEmail: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  studentFullName: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  contactNo: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  dateOfBirth: {
     type: Date,
-    default: Date.now
+    required: true
+  },
+  mothersName: {
+    type: String,
+    trim: true
+  },
+  qualification: {
+    type: String,
+    trim: true
+  },
+  
+  // Course & Fee Information
+  courseName: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  paidAmount: {
+    type: Number,
+    required: true
+  },
+  totalFees: {
+    type: Number,
+    required: true
+  },
+  
+  // Additional Information
+  remark: {
+    type: String,
+    trim: true
+  },
+  
+  // Documents
+  studentSign: {
+    type: String, // URL or base64
+    trim: true
+  },
+  studentPhoto: {
+    type: String, // URL or base64
+    trim: true
+  },
+  
+  // Certificate Details
+  issueDate: {
+    type: Date
   },
   status: {
     type: String,
@@ -52,7 +113,5 @@ const certificateSchema = new mongoose.Schema({
 certificateSchema.index({ studentId: 1 });
 certificateSchema.index({ courseId: 1 });
 certificateSchema.index({ status: 1 });
-// certificateNumber already has unique: true which creates an index
 
 export default mongoose.model('Certificate', certificateSchema);
-
