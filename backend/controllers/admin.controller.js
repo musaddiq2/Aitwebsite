@@ -83,77 +83,89 @@ export const getStudentById = async (req, res) => {
 // @desc    Create new student
 // @route   POST /api/admin/students
 // @access  Private/Admin
+
 export const createStudent = async (req, res) => {
   try {
-    const studentData = {
-      ...req.body,
-      role: 'student',
-      status: req.body.status || 'Pending'
-    };
+    const {
+      email,
+      password,
+      firstName,
+      lastName,
+      courseId,  // This will be the course code like "DSD-6"
+      enrolledSubjects = [],
+      completedSubjects = [],
+      ...otherFields
+    } = req.body;
 
-    // Validate rollNo
-    if (!studentData.rollNo || studentData.rollNo.trim() === '') {
-      return sendErrorResponse(res, 400, 'Roll Number is required');
+    // Check if user exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'User already exists with this email'
+      });
     }
 
-    studentData.rollNo = studentData.rollNo.trim();
-
-    // BACKEND VALIDATION: Verify course end date calculation
-    if (studentData.courseId && studentData.registrationDate) {
-      const course = await Course.findById(studentData.courseId);
-      
-      if (course) {
-        // Extract months from duration
-        const match = course.duration.match(/^(\d+)\s*months?$/i);
-        
-        if (match) {
-          const months = parseInt(match[1], 10);
-          const regDate = new Date(studentData.registrationDate);
-          const calculatedEndDate = new Date(regDate);
-          calculatedEndDate.setMonth(regDate.getMonth() + months);
-          
-          // Auto-set if missing or validate if provided
-          if (!studentData.courseEndDate) {
-            studentData.courseEndDate = calculatedEndDate;
-          } else {
-            const providedEndDate = new Date(studentData.courseEndDate);
-            const daysDifference = Math.abs(
-              (providedEndDate - calculatedEndDate) / (1000 * 60 * 60 * 24)
-            );
-            
-            // Allow small difference (1-2 days) for edge cases
-            if (daysDifference > 2) {
-              console.warn('End date mismatch detected:', {
-                provided: studentData.courseEndDate,
-                calculated: calculatedEndDate.toISOString().split('T')[0]
-              });
-            }
-          }
-        }
+    // Check if roll number exists
+    if (otherFields.rollNo) {
+      const existingRollNo = await User.findOne({ rollNo: otherFields.rollNo });
+      if (existingRollNo) {
+        return res.status(400).json({
+          success: false,
+          message: 'Roll number already exists'
+        });
       }
     }
 
-    console.log("Creating student with data:", studentData);
-
-    const student = await User.create(studentData);
-
-    const studentResponse = await User.findById(student._id)
-      .select('-password')
-      .populate('courseId', 'courseName duration fees');
-
-    sendSuccessResponse(res, 201, 'Student created successfully', studentResponse);
-  } catch (error) {
-    logger.error('Create student error:', error);
-
-    if (error.code === 11000) {
-      const field = error.keyValue?.email ? 'Email' : 'Roll Number';
-      sendErrorResponse(res, 400, `${field} already exists`);
-    } else if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map(err => err.message);
-      sendErrorResponse(res, 400, messages.join(', '));
-    } else {
-      sendErrorResponse(res, 500, 'Failed to create student');
+    // ✅ Find course by courseId (course code)
+    let selectedCourse = null;
+    let courseReference = null;
+    
+    if (courseId) {
+      selectedCourse = await Course.findOne({ courseId });
+      
+      if (!selectedCourse) {
+        return res.status(400).json({
+          success: false,
+          message: `Course with ID "${courseId}" not found`
+        });
+      }
+      
+      courseReference = selectedCourse._id; // Store the ObjectId
     }
+
+    // ✅ Create student with proper references
+    const student = await User.create({
+      email,
+      password,
+      firstName,
+      lastName,
+      role: 'student',
+      courseRef: courseReference,      // ✅ ObjectId reference
+      courseId: courseId,                // ✅ Course code (string)
+      courseName: selectedCourse?.courseName,
+      enrolledSubjects,
+      completedSubjects,
+      ...otherFields,
+      status: 'Active'
+    });
+
+    console.log(`✅ Student created: ${student._id}`);
+    console.log(`   - Course: ${courseId} (${selectedCourse?.courseName})`);
+    console.log(`   - Enrolled subjects: ${enrolledSubjects.length}`);
+    console.log(`   - Completed subjects: ${completedSubjects.length}`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Student created successfully',
+      data: student.getPublicProfile()
+    });
+  } catch (error) {
+    console.error('Create student error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to create student'
+    });
   }
 };
 
@@ -206,11 +218,35 @@ export const deleteStudent = async (req, res) => {
 // @access  Private/Admin
 export const getCourses = async (req, res) => {
   try {
-    const courses = await Course.find({ isActive: true }).sort({ createdAt: -1 });
-    sendSuccessResponse(res, 200, 'Courses retrieved successfully', courses);
+    const { search, isActive } = req.query;
+    
+    const query = { isDeleted: false };
+    
+    if (search) {
+      query.$or = [
+        { courseName: { $regex: search, $options: 'i' } },
+        { courseId: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    if (isActive !== undefined) {
+      query.isActive = isActive === 'true';
+    }
+    
+    const courses = await Course.find(query)
+      .select('courseId courseName description duration fees category level subjects prerequisites isActive') // ✅ Include subjects
+      .sort({ createdAt: -1 });
+    
+    res.json({
+      success: true,
+      data: courses
+    });
   } catch (error) {
-    logger.error('Get courses error:', error);
-    sendErrorResponse(res, 500, 'Failed to fetch courses');
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch courses'
+    });
   }
 };
 

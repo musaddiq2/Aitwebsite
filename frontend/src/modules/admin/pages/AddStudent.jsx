@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 
 import {
@@ -20,7 +20,11 @@ import {
   CheckCircle,
   Shield,
   Clock,
-  FileText
+  FileText,
+  CheckSquare,
+  Square,
+  AlertCircle,
+  Plus
 } from 'lucide-react';
 import { getCourses } from '../../../services/admin.service';
 
@@ -32,7 +36,12 @@ const AddStudent = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [aadhaarFile, setAadhaarFile] = useState(null);
   const [photoFile, setPhotoFile] = useState(null);
-  const [nextRollNo, setNextRollNo] = useState('');
+  
+  // ✅ NEW: Subject Management States
+  const [availableSubjects, setAvailableSubjects] = useState([]);
+  const [selectedSubjects, setSelectedSubjects] = useState([]);
+  const [completedSubjects, setCompletedSubjects] = useState([]);
+  const [customSubjectInput, setCustomSubjectInput] = useState(''); // NEW: For adding custom subjects
   
   const [formData, setFormData] = useState({
     // Personal Information
@@ -45,7 +54,6 @@ const AddStudent = () => {
     dateOfBirth: '',
     gender: '',
     qualification: '',
-    
     
     // Parent/Guardian Information
     parentName: '',
@@ -67,7 +75,6 @@ const AddStudent = () => {
     registrationDate: new Date().toISOString().split('T')[0],
     
     // Course Information
-    qualification: '',
     courseId: '',
     courseName: '',
     rollNo: '',
@@ -83,14 +90,17 @@ const AddStudent = () => {
     teacherName: '',
     enrollmentDate: new Date().toISOString().split('T')[0],
     
+    // ✅ NEW: Subject fields
+    enrolledSubjects: [], // Subjects student will study
+    completedSubjects: [], // Subjects already completed elsewhere
+    
     // Status
     status: 'Active'
   });
 
   useEffect(() => {
-  fetchCourses();
-  
-}, []);
+    fetchCourses();
+  }, []);
 
   const fetchCourses = async () => {
     try {
@@ -106,104 +116,148 @@ const AddStudent = () => {
       setCoursesLoading(false);
     }
   };
+
   const calculateCourseEndDate = (registrationDate, durationString) => {
-  // Validate inputs
-  if (!registrationDate || !durationString) {
-    console.warn('❌ Missing parameters:', { registrationDate, durationString });
-    return '';
-  }
-
-  try {
-    // Clean and normalize the duration string
-    const cleanDuration = durationString.trim().toLowerCase();
-    
-    console.log('🔍 Processing duration:', durationString);
-    
-    let monthsToAdd = 0;
-
-    // Pattern 1: "6 months", "12 Months", "3months", "6 month"
-    const standardMatch = cleanDuration.match(/(\d+)\s*months?/i);
-    
-    // Pattern 2: "DSD-6", "DSD-12", "Course-6" etc.
-    const dsdMatch = cleanDuration.match(/dsd[-_]?(\d+)/i);
-    
-    // Pattern 3: Just a number "6", "12"
-    const numberMatch = cleanDuration.match(/^(\d+)$/);
-    
-    // Pattern 4: "6m", "12m"
-    const shortMatch = cleanDuration.match(/(\d+)\s*m$/i);
-
-    if (standardMatch) {
-      monthsToAdd = parseInt(standardMatch[1], 10);
-      console.log('✅ Standard format detected:', monthsToAdd, 'months');
-    } else if (dsdMatch) {
-      monthsToAdd = parseInt(dsdMatch[1], 10);
-      console.log('✅ DSD format detected:', monthsToAdd, 'months');
-    } else if (numberMatch) {
-      monthsToAdd = parseInt(numberMatch[1], 10);
-      console.log('✅ Number format detected:', monthsToAdd, 'months');
-    } else if (shortMatch) {
-      monthsToAdd = parseInt(shortMatch[1], 10);
-      console.log('✅ Short format detected:', monthsToAdd, 'months');
-    } else {
-      console.error('❌ Invalid duration format:', durationString);
-      console.log('💡 Expected formats: "6 months", "DSD-6", "12", "6m"');
+    if (!registrationDate || !durationString) {
       return '';
     }
 
-    // Validate extracted months
-    if (isNaN(monthsToAdd) || monthsToAdd <= 0 || monthsToAdd > 120) {
-      console.warn('❌ Invalid months value:', monthsToAdd);
+    try {
+      const cleanDuration = durationString.trim().toLowerCase();
+      let monthsToAdd = 0;
+
+      const standardMatch = cleanDuration.match(/(\d+)\s*months?/i);
+      const dsdMatch = cleanDuration.match(/dsd[-_]?(\d+)/i);
+      const numberMatch = cleanDuration.match(/^(\d+)$/);
+      const shortMatch = cleanDuration.match(/(\d+)\s*m$/i);
+
+      if (standardMatch) {
+        monthsToAdd = parseInt(standardMatch[1], 10);
+      } else if (dsdMatch) {
+        monthsToAdd = parseInt(dsdMatch[1], 10);
+      } else if (numberMatch) {
+        monthsToAdd = parseInt(numberMatch[1], 10);
+      } else if (shortMatch) {
+        monthsToAdd = parseInt(shortMatch[1], 10);
+      } else {
+        return '';
+      }
+
+      if (isNaN(monthsToAdd) || monthsToAdd <= 0 || monthsToAdd > 120) {
+        return '';
+      }
+
+      const regDate = new Date(registrationDate);
+      
+      if (isNaN(regDate.getTime())) {
+        return '';
+      }
+
+      const endDate = new Date(regDate);
+      endDate.setMonth(regDate.getMonth() + monthsToAdd);
+
+      if (endDate.getDate() !== regDate.getDate()) {
+        endDate.setDate(0);
+      }
+
+      const year = endDate.getFullYear();
+      const month = String(endDate.getMonth() + 1).padStart(2, '0');
+      const day = String(endDate.getDate()).padStart(2, '0');
+      
+      return `${year}-${month}-${day}`;
+    } catch (error) {
+      console.error('Error calculating course end date:', error);
       return '';
     }
+  };
 
-    // Parse registration date
-    const regDate = new Date(registrationDate);
+  // ✅ NEW: Subject Toggle Handler
+  const handleSubjectToggle = (subject) => {
+    setSelectedSubjects(prev => {
+      if (prev.includes(subject)) {
+        // Remove subject from enrolled
+        return prev.filter(s => s !== subject);
+      } else {
+        // Add subject to enrolled
+        return [...prev, subject];
+      }
+    });
+  };
+
+  // ✅ NEW: Mark Subject as Completed (Simple Checkbox)
+  const handleMarkCompleted = (subject) => {
+    setCompletedSubjects(prev => {
+      if (prev.includes(subject)) {
+        // Unmark as completed and add back to selected
+        setSelectedSubjects(current => [...current, subject]);
+        return prev.filter(s => s !== subject);
+      } else {
+        // Mark as completed and remove from selected
+        setSelectedSubjects(current => current.filter(s => s !== subject));
+        return [...prev, subject];
+      }
+    });
+  };
+
+  // ✅ NEW: Add Custom Subject
+  const handleAddCustomSubject = () => {
+    const trimmedSubject = customSubjectInput.trim();
     
-    // Validate the registration date
-    if (isNaN(regDate.getTime())) {
-      console.warn('❌ Invalid registration date:', registrationDate);
-      return '';
+    if (!trimmedSubject) {
+      toast.error('Please enter a subject name');
+      return;
     }
-
-    // Create end date by adding months
-    const endDate = new Date(regDate);
-    endDate.setMonth(regDate.getMonth() + monthsToAdd);
-
-    // Handle edge case: If day doesn't exist in target month
-    if (endDate.getDate() !== regDate.getDate()) {
-      endDate.setDate(0); // Sets to last day of previous month
+    
+    // Check if subject already exists
+    if (availableSubjects.includes(trimmedSubject)) {
+      toast.error('This subject already exists');
+      return;
     }
+    
+    // Add to available subjects and select it
+    setAvailableSubjects(prev => [...prev, trimmedSubject]);
+    setSelectedSubjects(prev => [...prev, trimmedSubject]);
+    setCustomSubjectInput('');
+    toast.success(`Added "${trimmedSubject}" to subjects`);
+  };
 
-    // Format as YYYY-MM-DD for input type="date"
-    const year = endDate.getFullYear();
-    const month = String(endDate.getMonth() + 1).padStart(2, '0');
-    const day = String(endDate.getDate()).padStart(2, '0');
+  // ✅ NEW: Remove Custom Subject
+  const handleRemoveCustomSubject = (subject, isFromCourse) => {
+    if (isFromCourse) {
+      toast.error('Cannot remove course default subjects. You can only uncheck them.');
+      return;
+    }
     
-    const formattedDate = `${year}-${month}-${day}`;
-    
-    console.log('✅ Calculated end date:', formattedDate);
-    console.log('📅', registrationDate, '+', monthsToAdd, 'months =', formattedDate);
-    
-    return formattedDate;
-  } catch (error) {
-    console.error('❌ Error calculating course end date:', error);
-    return '';
-  }
-};
+    // Remove from all lists
+    setAvailableSubjects(prev => prev.filter(s => s !== subject));
+    setSelectedSubjects(prev => prev.filter(s => s !== subject));
+    setCompletedSubjects(prev => prev.filter(s => s !== subject));
+    toast.success(`Removed "${subject}"`);
+  };
+
+  // ✅ NEW: Select All Subjects
+  const handleSelectAll = () => {
+    const uncompletedSubjects = availableSubjects.filter(
+      subject => !completedSubjects.includes(subject)
+    );
+    setSelectedSubjects(uncompletedSubjects);
+  };
+
+  // ✅ NEW: Deselect All Subjects
+  const handleDeselectAll = () => {
+    setSelectedSubjects([]);
+  };
 
   const handleFileChange = (e, fileType) => {
     const file = e.target.files[0];
     if (file) {
-      // Validate file type
       const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
       if (!validTypes.includes(file.type)) {
         toast.error('Please upload only JPG, PNG or PDF files');
         return;
       }
 
-      // Validate file size (max 5MB)
-      const maxSize = 5 * 1024 * 1024; // 5MB
+      const maxSize = 5 * 1024 * 1024;
       if (file.size > maxSize) {
         toast.error('File size should not exceed 5MB');
         return;
@@ -228,154 +282,135 @@ const AddStudent = () => {
   };
 
   const handleChange = (e) => {
-  const { name, value } = e.target;
+    const { name, value } = e.target;
 
-  console.log('📝 Field changed:', name, '=', value);
+    setFormData(prev => {
+      const updated = { ...prev, [name]: value };
 
-  setFormData(prev => {
-    const updated = { ...prev, [name]: value };
-
-    // Auto-fill WhatsApp if phone changed and whatsapp empty
-    if (name === 'phone' && !updated.whatsappNumber) {
-      updated.whatsappNumber = value;
-    }
-
-    // When course is selected → auto-fill and calculate
-    if (name === 'courseId') {
-      console.log('🎓 Course changed, finding course with ID:', value);
-      
-      const selectedCourse = courses.find(c => c._id === value);
-      
-      console.log('🔍 Found course:', selectedCourse);
-      
-      if (selectedCourse) {
-        updated.courseName = selectedCourse.courseName;
-        updated.fullCourseFees = selectedCourse.fees?.toString() || '';
-
-        console.log('⏰ Course duration:', selectedCourse.duration);
-        console.log('📅 Registration date:', updated.registrationDate || prev.registrationDate);
-
-        // Calculate end date
-        const calculatedEndDate = calculateCourseEndDate(
-          updated.registrationDate || prev.registrationDate,
-          selectedCourse.duration
-        );
-        
-        updated.courseEndDate = calculatedEndDate;
-
-        if (calculatedEndDate) {
-          console.log('✅ SUCCESS! End date calculated:', calculatedEndDate);
-          // TOAST REMOVED - Only console log
-        } else {
-          console.error('❌ FAILED to calculate end date');
-          // TOAST REMOVED - Only console log
-        }
-      } else {
-        console.log('⚠️ No course selected, clearing fields');
-        updated.courseName = '';
-        updated.fullCourseFees = '';
-        updated.courseEndDate = '';
+      if (name === 'phone' && !updated.whatsappNumber) {
+        updated.whatsappNumber = value;
       }
-    }
 
-    // Recalculate end date when registration date changes
-    if (name === 'registrationDate') {
-      console.log('📅 Registration date changed to:', value);
-      
-      const selectedCourse = courses.find(c => c._id === updated.courseId);
-      
-      if (selectedCourse && value) {
-        console.log('🔄 Recalculating end date for course:', selectedCourse.courseName);
-        console.log('⏰ Duration:', selectedCourse.duration);
+      // ✅ UPDATED: Handle course selection with subjects
+      if (name === 'courseId') {
+        const selectedCourse = courses.find(c => c._id === value);
         
-        const calculatedEndDate = calculateCourseEndDate(
-          value,
-          selectedCourse.duration
-        );
-        
-        updated.courseEndDate = calculatedEndDate;
+        if (selectedCourse) {
+          updated.courseId = selectedCourse.courseId;
+          updated.courseName = selectedCourse.courseName;
+          updated.fullCourseFees = selectedCourse.fees?.toString() || '';
 
-        if (calculatedEndDate) {
-          console.log('✅ End date recalculated:', calculatedEndDate);
-          // TOAST REMOVED - Only console log
+          const calculatedEndDate = calculateCourseEndDate(
+            updated.registrationDate || prev.registrationDate,
+            selectedCourse.duration
+          );
+          
+          updated.courseEndDate = calculatedEndDate;
+
+          // ✅ NEW: Load subjects for the selected course
+          const courseSubjects = selectedCourse.subjects || [];
+          setAvailableSubjects(courseSubjects);
+          setSelectedSubjects(courseSubjects); // Initially select all
+          setCompletedSubjects([]); // Reset completed subjects
+          
+          console.log('📚 Loaded subjects for course:', courseSubjects);
         } else {
-          console.error('❌ Failed to recalculate end date');
-          // TOAST REMOVED - Only console log
+          updated.courseId = '';
+          updated.courseName = '';
+          updated.fullCourseFees = '';
+          updated.courseEndDate = '';
+          setAvailableSubjects([]);
+          setSelectedSubjects([]);
+          setCompletedSubjects([]);
         }
       }
-    }
 
-    console.log('📊 Updated formData:', {
-      courseId: updated.courseId,
-      courseName: updated.courseName,
-      duration: courses.find(c => c._id === updated.courseId)?.duration,
-      registrationDate: updated.registrationDate,
-      courseEndDate: updated.courseEndDate
+      if (name === 'registrationDate') {
+        const selectedCourse = courses.find(c => c.courseId === updated.courseId);
+        
+        if (selectedCourse && value) {
+          const calculatedEndDate = calculateCourseEndDate(
+            value,
+            selectedCourse.duration
+          );
+          
+          updated.courseEndDate = calculatedEndDate;
+        }
+      }
+
+      return updated;
     });
-
-    return updated;
-  });
-};
+  };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  setLoading(true);
+    e.preventDefault();
+    setLoading(true);
 
-  try {
-    // Validate required fields
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.password) {
-      toast.error('Please fill all required fields');
-      setLoading(false);
-      return;
-    }
-
-    // Validate course end date
-    if (!formData.courseEndDate && formData.courseId) {
-      toast.error('Course end date could not be calculated. Please check course duration format.');
-      setLoading(false);
-      return;
-    }
-
-    // Validate date logic
-    if (formData.registrationDate && formData.courseEndDate) {
-      const regDate = new Date(formData.registrationDate);
-      const endDate = new Date(formData.courseEndDate);
-      
-      if (endDate <= regDate) {
-        toast.error('Course end date must be after registration date');
+    try {
+      if (!formData.firstName || !formData.lastName || !formData.email || !formData.password) {
+        toast.error('Please fill all required fields');
         setLoading(false);
         return;
       }
-    }
 
-    // API call to create student
-    const response = await fetch('/api/admin/students', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: JSON.stringify({
+      if (!formData.courseEndDate && formData.courseId) {
+        toast.error('Course end date could not be calculated. Please check course duration format.');
+        setLoading(false);
+        return;
+      }
+
+      if (formData.registrationDate && formData.courseEndDate) {
+        const regDate = new Date(formData.registrationDate);
+        const endDate = new Date(formData.courseEndDate);
+        
+        if (endDate <= regDate) {
+          toast.error('Course end date must be after registration date');
+          setLoading(false);
+          return;
+        }
+      }
+
+      // ✅ NEW: Validate subjects
+      if (availableSubjects.length > 0 && selectedSubjects.length === 0 && completedSubjects.length === 0) {
+        toast.error('Please select at least one subject or mark subjects as completed');
+        setLoading(false);
+        return;
+      }
+
+      // ✅ NEW: Prepare subject data
+      const submissionData = {
         ...formData,
-        role: 'student'
-      })
-    });
+        role: 'student',
+        enrolledSubjects: selectedSubjects,
+        completedSubjects: completedSubjects
+      };
 
-    const data = await response.json();
+      console.log('📤 Submitting student data:', submissionData);
 
-    if (data.success) {
-      toast.success('Student added successfully!');
-      navigate('/admin/students');
-    } else {
-      toast.error(data.message || 'Failed to add student');
+      const response = await fetch('/api/admin/students', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(submissionData)
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success('Student added successfully with selected subjects!');
+        navigate('/admin/students');
+      } else {
+        toast.error(data.message || 'Failed to add student');
+      }
+    } catch (error) {
+      console.error('Error adding student:', error);
+      toast.error('Failed to add student. Please try again.');
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Error adding student:', error);
-    toast.error('Failed to add student. Please try again.');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleCancel = () => {
     if (window.confirm('Are you sure you want to cancel? All unsaved changes will be lost.')) {
@@ -547,7 +582,6 @@ const AddStudent = () => {
                 value={formData.dateOfBirth}
                 onChange={handleChange}
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                placeholder="mm/dd/yyyy"
               />
             </div>
           </div>
@@ -618,7 +652,7 @@ const AddStudent = () => {
               </label>
               <select
                 name="courseId"
-                value={formData.courseId}
+                value={courses.find(c => c.courseId === formData.courseId)?._id || ''}
                 onChange={handleChange}
                 required
                 disabled={coursesLoading}
@@ -629,7 +663,7 @@ const AddStudent = () => {
                 </option>
                 {courses.map(course => (
                   <option key={course._id} value={course._id}>
-                    {course.courseName} - {course.duration} (₹{course.fees?.toLocaleString()})
+                    {course.courseName} ({course.courseId}) - {course.duration} (₹{course.fees?.toLocaleString()})
                   </option>
                 ))}
               </select>
@@ -641,11 +675,14 @@ const AddStudent = () => {
               </label>
               <input
                 type="text"
-                value={formData.courseId}
+                value={formData.courseId || ''}
                 disabled
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed"
-                placeholder="Auto-filled"
+                placeholder="Auto-filled (e.g., DSD-6)"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                {formData.courseId ? `Selected: ${formData.courseId}` : 'Select a course to auto-fill'}
+              </p>
             </div>
 
             <div>
@@ -716,20 +753,20 @@ const AddStudent = () => {
               </select>
             </div>
 
-     <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Roll No <span className="text-red-500">*</span>
-          </label>
-        <input
-          type="text"
-          name="rollNo"
-          value={formData.rollNo}
-          onChange={handleChange}
-         required
-          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-          placeholder="e.g., 1001"
-        />
-      </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Roll No <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="rollNo"
+                value={formData.rollNo}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                placeholder="e.g., 1001"
+              />
+            </div>
 
             {formData.fullCourseFees && formData.feesPaidAmount && (
               <div className="md:col-span-2">
@@ -745,6 +782,261 @@ const AddStudent = () => {
             )}
           </div>
         </motion.div>
+
+        {/* ✅ NEW: Dynamic Subject Selection Section */}
+        <AnimatePresence>
+          {availableSubjects.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: 'auto' }}
+              exit={{ opacity: 0, y: -20, height: 0 }}
+              transition={{ delay: 0.35 }}
+              className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-indigo-100 rounded-lg">
+                    <BookOpen className="w-5 h-5 text-indigo-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">Subject Selection</h2>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Select subjects for this student's course plan
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={handleSelectAll}
+                    className="px-3 py-1.5 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                  >
+                    Select All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeselectAll}
+                    className="px-3 py-1.5 text-sm bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    Deselect All
+                  </button>
+                </div>
+              </div>
+
+              {/* Add Custom Subject */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Add Custom Subject (if student needs additional subject)
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={customSubjectInput}
+                    onChange={(e) => setCustomSubjectInput(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCustomSubject())}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., Advanced React, Python Basics"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddCustomSubject}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Add extra subjects not included in the course curriculum
+                </p>
+              </div>
+
+              {/* Subject Statistics */}
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-gray-600 mb-1">Total Subjects</p>
+                  <p className="text-2xl font-bold text-blue-600">{availableSubjects.length}</p>
+                </div>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <p className="text-sm text-gray-600 mb-1">To Study</p>
+                  <p className="text-2xl font-bold text-green-600">{selectedSubjects.length}</p>
+                </div>
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <p className="text-sm text-gray-600 mb-1">Already Completed</p>
+                  <p className="text-2xl font-bold text-purple-600">{completedSubjects.length}</p>
+                </div>
+              </div>
+
+              {/* Info Banner */}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 flex items-start space-x-3">
+                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-amber-800">
+                  <p className="font-medium mb-1">How to use subject selection:</p>
+                  <ul className="list-disc list-inside space-y-1 text-amber-700">
+                    <li><strong>Left Checkbox:</strong> Select subjects student will study at your institute</li>
+                    <li><strong>Right Checkbox (Completed):</strong> Mark subjects already completed elsewhere</li>
+                    <li><strong>Add Custom:</strong> Add additional subjects not in the course curriculum</li>
+                    <li><strong>Remove (X):</strong> Delete custom added subjects (course subjects cannot be removed)</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Subject List */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {availableSubjects.map((subject, index) => {
+                  const isSelected = selectedSubjects.includes(subject);
+                  const isCompleted = completedSubjects.includes(subject);
+                  // Check if this is from the original course subjects
+                  const selectedCourse = courses.find(c => c.courseId === formData.courseId);
+                  const isFromCourse = selectedCourse?.subjects?.includes(subject) || false;
+
+                  return (
+                    <motion.div
+                      key={subject}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className={`
+                        relative border-2 rounded-lg p-4 transition-all
+                        ${isCompleted 
+                          ? 'border-purple-300 bg-purple-50' 
+                          : isSelected 
+                            ? 'border-green-300 bg-green-50' 
+                            : 'border-gray-200 bg-white hover:border-gray-300'
+                        }
+                      `}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4 flex-1">
+                          {/* Left Checkbox - Will Study */}
+                          <div className="flex flex-col items-center">
+                            <button
+                              type="button"
+                              onClick={() => !isCompleted && handleSubjectToggle(subject)}
+                              disabled={isCompleted}
+                              className={`
+                                mb-1 transition-all
+                                ${isCompleted ? 'cursor-not-allowed opacity-40' : 'cursor-pointer hover:scale-110'}
+                              `}
+                              title={isCompleted ? 'Cannot select - marked as completed' : 'Select to study'}
+                            >
+                              {isSelected ? (
+                                <CheckSquare className="w-6 h-6 text-green-600" />
+                              ) : (
+                                <Square className="w-6 h-6 text-gray-400" />
+                              )}
+                            </button>
+                            <span className="text-[10px] text-gray-500">Study</span>
+                          </div>
+
+                          {/* Subject Name */}
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className={`
+                                font-medium 
+                                ${isCompleted ? 'text-purple-700 line-through' : 'text-gray-900'}
+                              `}>
+                                {subject}
+                              </p>
+                              {!isFromCourse && (
+                                <span className="px-2 py-0.5 bg-indigo-100 text-indigo-600 text-[10px] rounded-full">
+                                  Custom
+                                </span>
+                              )}
+                            </div>
+                            {isCompleted && (
+                              <p className="text-xs text-purple-600 mt-1">
+                                ✓ Already completed elsewhere
+                              </p>
+                            )}
+                            {isSelected && !isCompleted && (
+                              <p className="text-xs text-green-600 mt-1">
+                                ✓ Will be studied
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Right Checkbox - Completed */}
+                          <div className="flex flex-col items-center">
+                            <button
+                              type="button"
+                              onClick={() => handleMarkCompleted(subject)}
+                              className="mb-1 cursor-pointer hover:scale-110 transition-all"
+                              title={isCompleted ? 'Unmark as completed' : 'Mark as completed'}
+                            >
+                              {isCompleted ? (
+                                <CheckSquare className="w-6 h-6 text-purple-600" />
+                              ) : (
+                                <Square className="w-6 h-6 text-gray-400" />
+                              )}
+                            </button>
+                            <span className="text-[10px] text-gray-500">Done</span>
+                          </div>
+
+                          {/* Remove Button (Only for custom subjects) */}
+                          {!isFromCourse && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCustomSubject(subject, isFromCourse)}
+                              className="ml-2 p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                              title="Remove custom subject"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+
+              {/* Summary */}
+              {(selectedSubjects.length > 0 || completedSubjects.length > 0) && (
+                <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Summary</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    {selectedSubjects.length > 0 && (
+                      <div>
+                        <p className="font-medium text-gray-700 mb-2">
+                          Subjects to Study ({selectedSubjects.length}):
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedSubjects.map(subject => (
+                            <span
+                              key={subject}
+                              className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs"
+                            >
+                              {subject}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {completedSubjects.length > 0 && (
+                      <div>
+                        <p className="font-medium text-gray-700 mb-2">
+                          Already Completed ({completedSubjects.length}):
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {completedSubjects.map(subject => (
+                            <span
+                              key={subject}
+                              className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs line-through"
+                            >
+                              {subject}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Address & Documents */}
         <motion.div
@@ -933,152 +1225,152 @@ const AddStudent = () => {
             </div>
 
             <div className="md:col-span-2">
-  <label className="block text-sm font-medium text-gray-700 mb-2">
-    Batch Time
-  </label>
-  <select
-    name="batchTime"
-    value={formData.batchTime}
-    onChange={handleChange}
-    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-  >
-    <option value="">-- Select Batch Time --</option>
-    <option value="7:00 AM - 8:30 AM">7:00 AM - 8:30 AM</option>
-    <option value="8:30 AM - 10:00 AM">8:30 AM - 10:00 AM</option>
-    <option value="9:30 AM - 11:00 AM">9:30 AM - 11:00 AM</option>
-    <option value="10:00 AM - 11:30 AM">10:00 AM - 11:30 AM</option>
-    <option value="11:30 AM - 1:00 PM">11:30 AM - 1:00 PM</option>
-    <option value="3:30 PM - 5:00 PM">3:30 PM - 5:00 PM</option>
-    <option value="5:00 PM - 6:30 PM">5:00 PM - 6:30 PM</option>
-    <option value="6:30 PM - 8:00 PM">6:30 PM - 8:00 PM</option>
-    <option value="8:00 PM - 9:30 PM">8:00 PM - 9:30 PM</option>
-  </select>
-</div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Batch Time
+              </label>
+              <select
+                name="batchTime"
+                value={formData.batchTime}
+                onChange={handleChange}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              >
+                <option value="">-- Select Batch Time --</option>
+                <option value="7:00 AM - 8:30 AM">7:00 AM - 8:30 AM</option>
+                <option value="8:30 AM - 10:00 AM">8:30 AM - 10:00 AM</option>
+                <option value="9:30 AM - 11:00 AM">9:30 AM - 11:00 AM</option>
+                <option value="10:00 AM - 11:30 AM">10:00 AM - 11:30 AM</option>
+                <option value="11:30 AM - 1:00 PM">11:30 AM - 1:00 PM</option>
+                <option value="3:30 PM - 5:00 PM">3:30 PM - 5:00 PM</option>
+                <option value="5:00 PM - 6:30 PM">5:00 PM - 6:30 PM</option>
+                <option value="6:30 PM - 8:00 PM">6:30 PM - 8:00 PM</option>
+                <option value="8:00 PM - 9:30 PM">8:00 PM - 9:30 PM</option>
+              </select>
+            </div>
 
-            {/* Course End Date - ENHANCED VERSION */}
-<div>
-  <label className="block text-sm font-medium text-gray-700 mb-2">
-    Course End Date
-    {formData.courseEndDate && (
-      <span className="text-green-600 text-xs ml-2">
-        ✓ Auto-calculated
-      </span>
-    )}
-  </label>
-  <input
-    type="date"
-    name="courseEndDate"
-    value={formData.courseEndDate}
-    readOnly
-    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed"
-    placeholder="Auto-filled after selecting course & registration date"
-  />
-  {!formData.courseEndDate && formData.courseId && formData.registrationDate && (
-    <p className="text-xs text-amber-600 mt-1">
-      ⚠ End date calculation in progress...
-    </p>
-  )}
-  {!formData.courseEndDate && (!formData.courseId || !formData.registrationDate) && (
-    <p className="text-xs text-gray-500 mt-1">
-      Select course and registration date to auto-calculate
-    </p>
-  )}
-  {formData.courseEndDate && (
-    <p className="text-xs text-blue-600 mt-1">
-      📅 Calculated from {formData.registrationDate} + course duration
-    </p>
-  )}
-</div>          </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Course End Date
+                {formData.courseEndDate && (
+                  <span className="text-green-600 text-xs ml-2">
+                    ✓ Auto-calculated
+                  </span>
+                )}
+              </label>
+              <input
+                type="date"
+                name="courseEndDate"
+                value={formData.courseEndDate}
+                readOnly
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed"
+                placeholder="Auto-filled after selecting course & registration date"
+              />
+              {!formData.courseEndDate && formData.courseId && formData.registrationDate && (
+                <p className="text-xs text-amber-600 mt-1">
+                  ⚠ End date calculation in progress...
+                </p>
+              )}
+              {!formData.courseEndDate && (!formData.courseId || !formData.registrationDate) && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Select course and registration date to auto-calculate
+                </p>
+              )}
+              {formData.courseEndDate && (
+                <p className="text-xs text-blue-600 mt-1">
+                  📅 Calculated from {formData.registrationDate} + course duration
+                </p>
+              )}
+            </div>
+          </div>
         </motion.div>
 
         {/* Action Buttons */}
-<motion.div
-  initial={{ opacity: 0, y: 20 }}
-  animate={{ opacity: 1, y: 0 }}
-  transition={{ delay: 0.6 }}
-  className="flex flex-col sm:flex-row gap-3 justify-center"
->
-  {/* Submit Button */}
-  <button
-    type="submit"
-    disabled={loading}
-    className="flex items-center justify-center space-x-2 px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-  >
-    {loading ? (
-      <>
-        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-        <span className="font-medium">Adding Student...</span>
-      </>
-    ) : (
-      <>
-        <CheckCircle className="w-5 h-5" />
-        <span className="font-medium">Submit</span>
-      </>
-    )}
-  </button>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          className="flex flex-col sm:flex-row gap-3 justify-center"
+        >
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex items-center justify-center space-x-2 px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <span className="font-medium">Adding Student...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle className="w-5 h-5" />
+                <span className="font-medium">Submit</span>
+              </>
+            )}
+          </button>
 
-  {/* New Registration Button - UPDATED WITH fetchNextRollNo */}
-  <button
-    type="button"
-    onClick={() => {
-      // Reset form
-      setFormData({
-        firstName: '',
-        lastName: '',
-        email: '',
-        password: '',
-        phone: '',
-        whatsappNumber: '',
-        dateOfBirth: '',
-        gender: '',
-        qualification: '',
-        
-        parentName: '',
-        parentPhone: '',
-        emergencyContact: '',
-        address: '',
-        city: '',
-        state: '',
-        pincode: '',
-        country: 'India',
-        aadhaarCard: '',
-        passportPhoto: '',
-        registrationDate: new Date().toISOString().split('T')[0],
-        courseId: '',
-        courseName: '',
-        rollNo: '',
-        fullCourseFees: '',
-        feesPaidAmount: '0',
-        receiptNumber: '',
-        feesPaidMode: '',
-        progressCode: '',
-        batchTime: '',
-        courseEndDate: '',
-        teacherName: '',
-        enrollmentDate: new Date().toISOString().split('T')[0],
-        status: 'Active'
-      });
-      setAadhaarFile(null);
-      setPhotoFile(null);
-      
-      toast.success('Form reset successfully');
-    }}
-    className="flex items-center justify-center space-x-2 px-8 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all"
-  >
-    <span className="font-medium">New Registration</span>
-  </button>
+          <button
+            type="button"
+            onClick={() => {
+              setFormData({
+                firstName: '',
+                lastName: '',
+                email: '',
+                password: '',
+                phone: '',
+                whatsappNumber: '',
+                dateOfBirth: '',
+                gender: '',
+                qualification: '',
+                parentName: '',
+                parentPhone: '',
+                emergencyContact: '',
+                address: '',
+                city: '',
+                state: '',
+                pincode: '',
+                country: 'India',
+                aadhaarCard: '',
+                passportPhoto: '',
+                registrationDate: new Date().toISOString().split('T')[0],
+                courseId: '',
+                courseName: '',
+                rollNo: '',
+                fullCourseFees: '',
+                feesPaidAmount: '0',
+                receiptNumber: '',
+                feesPaidMode: '',
+                progressCode: '',
+                batchTime: '',
+                courseEndDate: '',
+                teacherName: '',
+                enrollmentDate: new Date().toISOString().split('T')[0],
+                enrolledSubjects: [],
+                completedSubjects: [],
+                status: 'Active'
+              });
+              setAadhaarFile(null);
+              setPhotoFile(null);
+              setAvailableSubjects([]);
+              setSelectedSubjects([]);
+              setCompletedSubjects([]);
+              
+              toast.success('Form reset successfully');
+            }}
+            className="flex items-center justify-center space-x-2 px-8 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all"
+          >
+            <span className="font-medium">New Registration</span>
+          </button>
 
-  {/* Back Button */}
-  <button
-    type="button"
-    onClick={handleCancel}
-    disabled={loading}
-    className="flex items-center justify-center space-x-2 px-8 py-3 bg-red-50 border border-red-200 text-red-600 rounded-lg hover:bg-red-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-  >
-    <X className="w-5 h-5" />
-    <span className="font-medium">Back</span>
-  </button>
-</motion.div>
+          <button
+            type="button"
+            onClick={handleCancel}
+            disabled={loading}
+            className="flex items-center justify-center space-x-2 px-8 py-3 bg-red-50 border border-red-200 text-red-600 rounded-lg hover:bg-red-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <X className="w-5 h-5" />
+            <span className="font-medium">Back</span>
+          </button>
+        </motion.div>
       </form>
     </div>
   );

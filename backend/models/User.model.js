@@ -89,43 +89,53 @@ const userSchema = new mongoose.Schema({
   },
   
   // Course Information
-  courseId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Course'
-  },
-  courseName: {
-    type: String,
-    trim: true
-  },
-  currentCourse: {
-    type: String,
-    trim: true
-  },
-  progressCode: {
-    type: String,
-    trim: true
-  },
-  batchTime: {
-    type: String,
-    trim: true
-  },
-  teacherName: {
-    type: String,
-    trim: true
-  },
-  rollNo: {
-    type: String,
-    unique: true,
-    sparse: true,
-    trim: true
-  },
-  enrollmentDate: {
-    type: Date,
-    default: Date.now
-  },
-  courseEndDate: {
-    type: Date
-  },
+courseId: {
+  type: String,  // ✅ Store course code (e.g., "DSD-6", "MERN21")
+  trim: true
+},
+courseName: {
+  type: String,
+  trim: true
+},
+currentCourse: {
+  type: String,
+  trim: true
+},
+progressCode: {
+  type: String,
+  trim: true
+},
+batchTime: {
+  type: String,
+  trim: true
+},
+teacherName: {
+  type: String,
+  trim: true
+},
+rollNo: {
+  type: String,
+  unique: true,
+  sparse: true,
+  trim: true
+},
+enrollmentDate: {
+  type: Date,
+  default: Date.now
+},
+courseEndDate: {
+  type: Date
+},
+
+// ✅ NEW: Subject Management
+enrolledSubjects: [{
+  type: String,
+  trim: true
+}],
+completedSubjects: [{
+  type: String,
+  trim: true
+}],
   
   // Fees Information
   fullCourseFees: {
@@ -215,6 +225,21 @@ userSchema.virtual('fullName').get(function() {
 // Virtual for balance fees
 userSchema.virtual('balanceFees').get(function() {
   return Math.max(0, (this.fullCourseFees || 0) - (this.feesPaidAmount || 0));
+});
+
+// ✅ NEW: Virtual for remaining subjects count
+userSchema.virtual('remainingSubjectsCount').get(function() {
+  return (this.enrolledSubjects || []).length;
+});
+
+// ✅ NEW: Virtual for total subjects progress
+userSchema.virtual('subjectProgress').get(function() {
+  const enrolled = (this.enrolledSubjects || []).length;
+  const completed = (this.completedSubjects || []).length;
+  const total = enrolled + completed;
+  
+  if (total === 0) return 0;
+  return Math.round((completed / total) * 100);
 });
 
 // Hash password before saving
