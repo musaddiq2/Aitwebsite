@@ -381,8 +381,15 @@ const Courses = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-all duration-300 group"
-              >
+                className={`bg-white rounded-xl shadow-sm border p-6 transition-all duration-300 group ${
+                !course.isActive ? 'border-red-200 bg-gray-50 opacity-80' : 'border-gray-200 shadow-sm'}`} > 
+                
+           <div className="flex justify-end mb-2">
+                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
+                    course.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }`}>                                                                                     
+                    {course.isActive ? 'Active' : 'Inactive'}
+                 </span>
+           </div>
                 {/* Course Header */}
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">

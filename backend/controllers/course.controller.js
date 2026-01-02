@@ -11,12 +11,11 @@ export const getCourses = async (req, res) => {
   try {
     const { search, isActive } = req.query;
 
-    const query = { isActive: true };
-    
-    if (isActive !== undefined) {
-      query.isActive = isActive === 'true';
+    const query = {};
+    if(isActive === 'true' || isActive === 'false'){
+        query.isActive = isActive === 'true';
     }
-    
+          
     if (search) {
       query.$or = [
         { courseName: { $regex: search, $options: 'i' } },

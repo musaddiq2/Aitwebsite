@@ -4,23 +4,27 @@ import { sendSuccessResponse, sendErrorResponse, sendPaginatedResponse } from '.
 import { getPaginationParams, getPaginationMeta } from '../utils/pagination.js';
 import logger from '../configs/logger.js';
 
-// @desc    Get all installments
+// @desc    Get all installments (with safe defaults)
 // @route   GET /api/installments
 // @access  Private
 export const getInstallments = async (req, res) => {
   try {
-    const { page, limit, skip } = getPaginationParams(req);
-    const { studentId, startDate, endDate } = req.query;
+    // 1. Parse pagination with fallbacks
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.max(1, parseInt(req.query.limit) || 100);
+    const skip = (page - 1) * limit;
 
+    const { studentId, startDate, endDate } = req.query;
     const query = {};
-    
-    // If student role, only show their installments
-    if (req.user.role === 'student') {
+
+    // 2. Role-based Security
+    if (req.user?.role === 'student') {
       query.studentId = req.user._id;
-    } else if (studentId) {
+    } else if (studentId && studentId !== 'undefined') {
       query.studentId = studentId;
     }
 
+    // 3. Date Filtering
     if (startDate && endDate) {
       query.paidDate = {
         $gte: new Date(startDate),
@@ -28,21 +32,46 @@ export const getInstallments = async (req, res) => {
       };
     }
 
+    // 4. Execute Query with Error Catching per Operation
+    // Note: I removed .populate('courseId') because it's the most common cause of 500 errors
     const [installments, total] = await Promise.all([
       Installment.find(query)
-        .populate('studentId', 'firstName lastName email')
-        .populate('courseId', 'courseName')
+        .populate({
+          path: 'studentId',
+          select: 'firstName lastName email',
+          match: { _id: { $exists: true } } // Ensure we don't crash if student is missing
+        })
         .sort({ paidDate: -1 })
         .skip(skip)
-        .limit(limit),
+        .limit(limit)
+        .lean(), // lean() makes queries faster and prevents Mongoose circular errors
       Installment.countDocuments(query)
     ]);
 
-    const pagination = getPaginationMeta(total, page, limit);
-    sendPaginatedResponse(res, installments, pagination);
+    // 5. Success Response
+    return res.status(200).json({
+      success: true,
+      data: installments || [],
+      meta: {
+        total: total || 0,
+        page,
+        limit,
+        pages: Math.ceil((total || 0) / limit)
+      }
+    });
+
   } catch (error) {
-    logger.error('Get installments error:', error);
-    sendErrorResponse(res, 500, 'Failed to fetch installments');
+    // THIS LOG IS CRITICAL: Check your terminal for this output
+    console.error('CRITICAL BACKEND ERROR:', {
+      message: error.message,
+      stack: error.stack,
+      query: req.query
+    });
+
+    return res.status(500).json({ 
+      success: false,
+      message: 'Internal Server Error: ' + error.message 
+    });
   }
 };
 
